@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RWY.VISION — Runway Edge Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#05070B;
+    --bg-panel:#0D131B;
+    --bg-panel-raised:#121A24;
+    --line-hair:#1E2A38;
+    --amber:#FFB020;
+    --cyan:#5EEAD4;
+    --rwy-green:#34D399;
+    --rwy-red:#FB6B6B;
+    --rwy-blue:#5B8CFF;
+    --text-hi:#EAF0F6;
+    --text-dim:#7C8AA0;
+    --text-faint:#4A5568;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  html,body{
+    background:var(--bg-deep);
+    color:var(--text-hi);
+    font-family:'Space Grotesk',sans-serif;
+    overflow-x:hidden;
+  }
+
+  ::selection{background:var(--amber);color:#05070B;}
+
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  /* faint grid texture across whole page */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(var(--line-hair) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-hair) 1px, transparent 1px);
+    background-size:64px 64px;
+    opacity:0.25;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 32px;position:relative;z-index:1;}
+
+  /* ---------- NAV ---------- */
+  nav{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:26px 0;
+    border-bottom:1px solid var(--line-hair);
+  }
+  .brand{
+    display:flex;align-items:center;gap:10px;
+    font-weight:600;font-size:18px;letter-spacing:0.5px;
+  }
+  .brand-mark{
+    width:22px;height:22px;
+    border:1.5px solid var(--cyan);
+    border-radius:50%;
+    position:relative;
+    flex-shrink:0;
+  }
+  .brand-mark::after{
+    content:"";
+    position:absolute;top:50%;left:50%;
+    width:8px;height:1.5px;
+    background:var(--cyan);
+    transform:translate(-50%,-50%);
+  }
+  .brand-mark::before{
+    content:"";
+    position:absolute;top:50%;left:50%;
+    width:1.5px;height:8px;
+    background:var(--cyan);
+    transform:translate(-50%,-50%);
+  }
+  nav .navlinks{
+    display:flex;gap:36px;
+    font-size:14px;color:var(--text-dim);
+  }
+  nav .navlinks span{cursor:pointer;transition:color .2s;}
+  nav .navlinks span:hover{color:var(--text-hi);}
+  .status-pill{
+    display:flex;align-items:center;gap:8px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;color:var(--rwy-green);
+    border:1px solid var(--line-hair);
+    padding:6px 12px;
+  }
+  .status-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--rwy-green);
+    box-shadow:0 0 8px var(--rwy-green);
+    animation:pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    display:grid;
+    grid-template-columns:1fr 460px;
+    gap:60px;
+    align-items:center;
+    padding:90px 0 100px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:var(--cyan);
+    letter-spacing:1.5px;
+    margin-bottom:22px;
+    display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"//";color:var(--text-faint);}
+  h1{
+    font-size:56px;
+    line-height:1.05;
+    font-weight:700;
+    letter-spacing:-1px;
+    margin-bottom:24px;
+  }
+  h1 .accent{color:var(--amber);}
+  .hero p.sub{
+    font-size:17px;
+    line-height:1.6;
+    color:var(--text-dim);
+    max-width:460px;
+    margin-bottom:36px;
+  }
+  .cta-row{display:flex;gap:14px;align-items:center;}
+  .btn{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:15px;font-weight:600;
+    padding:14px 26px;
+    border:none;cursor:pointer;
+    transition:all .2s ease;
+  }
+  .btn-primary{
+    background:var(--amber);
+    color:#0A0603;
+  }
+  .btn-primary:hover{background:#ffc250;}
+  .btn-ghost{
+    background:transparent;
+    color:var(--text-hi);
+    border:1px solid var(--line-hair);
+  }
+  .btn-ghost:hover{border-color:var(--text-dim);}
+
+  /* readout row under hero text */
+  .readouts{
+    display:flex;gap:34px;
+    margin-top:46px;
+    padding-top:26px;
+    border-top:1px solid var(--line-hair);
+  }
+  .readout .val{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:22px;font-weight:600;
+    color:var(--text-hi);
+  }
+  .readout .val.green{color:var(--rwy-green);}
+  .readout .lbl{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;color:var(--text-faint);
+    margin-top:4px;letter-spacing:0.5px;
+  }
+
+  /* ---------- SCOPE (hero visual) ---------- */
+  .scope{
+    position:relative;
+    aspect-ratio:1/1;
+    border:1px solid var(--line-hair);
+    background:radial-gradient(circle at 50% 50%, #0B1520 0%, #060A0F 75%);
+    overflow:hidden;
+  }
+  .scope-corners span{
+    position:absolute;width:18px;height:18px;
+    border:1.5px solid var(--cyan);
+    opacity:0.7;
+  }
+  .scope-corners .tl{top:10px;left:10px;border-right:none;border-bottom:none;}
+  .scope-corners .tr{top:10px;right:10px;border-left:none;border-bottom:none;}
+  .scope-corners .bl{bottom:10px;left:10px;border-right:none;border-top:none;}
+  .scope-corners .br{bottom:10px;right:10px;border-left:none;border-top:none;}
+
+  .scope-ring{
+    position:absolute;top:50%;left:50%;
+    border:1px solid var(--line-hair);
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+  }
+
+  .scope-sweep{
+    position:absolute;top:50%;left:50%;
+    width:50%;height:2px;
+    transform-origin:left center;
+    background:linear-gradient(90deg, var(--cyan), transparent);
+    animation:sweep 4s linear infinite;
+    opacity:0.8;
+  }
+  @keyframes sweep{
+    from{transform:translate(0,-50%) rotate(0deg);}
+    to{transform:translate(0,-50%) rotate(360deg);}
+  }
+
+  .runway-strip{
+    position:absolute;
+    top:14%;left:50%;
+    width:150px;height:72%;
+    transform:translateX(-50%) perspective(400px) rotateX(8deg);
+    background:linear-gradient(180deg,#151C26,#0A0F16);
+    clip-path:polygon(38% 0%, 62% 0%, 88% 100%, 12% 100%);
+  }
+  .edge-line{
+    position:absolute;top:0;width:2.5px;height:100%;
+    opacity:0;
+  }
+  .edge-line.left{left:38%;background:var(--rwy-green);box-shadow:0 0 10px var(--rwy-green);transform:skewX(-4deg);}
+  .edge-line.right{right:38%;background:var(--rwy-red);box-shadow:0 0 10px var(--rwy-red);transform:skewX(4deg);}
+  .edge-line.center{left:50%;background:var(--rwy-blue);box-shadow:0 0 10px var(--rwy-blue);}
+
+  .scope.locked .edge-line{
+    animation:reveal 0.6s ease forwards;
+  }
+  .scope.locked .edge-line.left{animation-delay:0.2s;}
+  .scope.locked .edge-line.right{animation-delay:0.45s;}
+  .scope.locked .edge-line.center{animation-delay:0.7s;}
+  @keyframes reveal{
+    from{opacity:0;height:0;}
+    to{opacity:1;height:100%;}
+  }
+
+  .scope-tag{
+    position:absolute;bottom:28px;left:50%;
+    transform:translateX(-50%);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;letter-spacing:1px;
+    color:var(--cyan);
+    opacity:0.85;
+  }
+
+  /* ---------- SECTION: how it works ---------- */
+  section{padding:90px 0;border-top:1px solid var(--line-hair);}
+  .section-head{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    margin-bottom:56px;
+    gap:20px;
+  }
+  .section-head h2{font-size:32px;font-weight:600;letter-spacing:-0.5px;max-width:520px;}
+  .section-head p{color:var(--text-dim);font-size:14px;max-width:280px;line-height:1.6;}
+
+  .steps{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:1px;
+    background:var(--line-hair);
+    border:1px solid var(--line-hair);
+  }
+  .step{
+    background:var(--bg-panel);
+    padding:36px 30px;
+  }
+  .step .num{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;color:var(--amber);
+    margin-bottom:18px;
+  }
+  .step h3{font-size:19px;font-weight:600;margin-bottom:10px;}
+  .step p{font-size:14px;color:var(--text-dim);line-height:1.6;}
+
+  /* ---------- SECTION: metrics ---------- */
+  .metrics-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:1px;
+    background:var(--line-hair);
+    border:1px solid var(--line-hair);
+  }
+  .metric{
+    background:var(--bg-panel);
+    padding:30px 26px;
+    position:relative;
+  }
+  .metric .lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-faint);letter-spacing:1px;margin-bottom:14px;}
+  .metric .big{font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;}
+  .metric .big.green{color:var(--rwy-green);}
+  .metric .big.amber{color:var(--amber);}
+  .metric .sub{font-size:12px;color:var(--text-dim);margin-top:8px;}
+  .metric .bar{height:3px;background:var(--line-hair);margin-top:16px;position:relative;overflow:hidden;}
+  .metric .bar i{position:absolute;left:0;top:0;height:100%;background:var(--cyan);}
+
+  /* ---------- SECTION: demo / upload ---------- */
+  .demo-panel{
+    border:1px solid var(--line-hair);
+    background:var(--bg-panel);
+    padding:4px;
+  }
+  .demo-inner{
+    border:1.5px dashed var(--line-hair);
+    padding:70px 30px;
+    text-align:center;
+    position:relative;
+    transition:border-color .2s;
+    cursor:pointer;
+  }
+  .demo-inner.drag{border-color:var(--cyan);}
+  .demo-reticle span{
+    position:absolute;width:20px;height:20px;
+    border:1.5px solid var(--amber);
+  }
+  .demo-reticle .tl{top:14px;left:14px;border-right:none;border-bottom:none;}
+  .demo-reticle .tr{top:14px;right:14px;border-left:none;border-bottom:none;}
+  .demo-reticle .bl{bottom:14px;left:14px;border-right:none;border-top:none;}
+  .demo-reticle .br{bottom:14px;right:14px;border-left:none;border-top:none;}
+  .demo-inner h3{font-size:20px;margin-bottom:10px;font-weight:600;}
+  .demo-inner p{color:var(--text-dim);font-size:14px;margin-bottom:26px;}
+  .demo-inner input[type=file]{display:none;}
+  #previewWrap{margin:26px auto;display:none;position:relative;max-width:90%;}
+  #previewWrap.active{display:block;width:fit-content;margin:26px auto;}
+  #previewImg{max-width:100%;max-height:300px;border:1px solid var(--line-hair);display:block;}
+  #overlayCanvas{position:absolute;top:0;left:0;}
+  .scan-msg{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;color:var(--cyan);
+    margin-top:14px;
+    display:none;
+    letter-spacing:0.5px;
+  }
+  .scan-msg.active{display:block;animation:blink 1s step-start infinite;}
+  @keyframes blink{50%{opacity:0.3;}}
+
+  /* ---------- FOOTER ---------- */
+  footer{
+    border-top:1px solid var(--line-hair);
+    padding:40px 0;
+    display:flex;justify-content:space-between;align-items:center;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;color:var(--text-faint);
+  }
+
+  code.inline{
+    font-family:'IBM Plex Mono',monospace;
+    background:var(--bg-panel-raised);
+    padding:2px 6px;
+    color:var(--cyan);
+    font-size:12.5px;
+  }
+
+  @media (max-width:860px){
+    .hero{grid-template-columns:1fr;}
+    .scope{max-width:400px;margin:0 auto;}
+    h1{font-size:38px;}
+    .steps,.metrics-grid{grid-template-columns:1fr;}
+    nav .navlinks{display:none;}
+    .section-head{flex-direction:column;align-items:flex-start;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .scope-sweep, .status-dot{animation:none;}
+    .scope.locked .edge-line{animation-duration:0.01s;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav>
+    <div class="brand"><span class="brand-mark"></span>RWY.VISION</div>
+    <div class="navlinks">
+      <span onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">How it works</span>
+      <span onclick="document.getElementById('perf').scrollIntoView({behavior:'smooth'})">Performance</span>
+      <span onclick="document.getElementById('demo').scrollIntoView({behavior:'smooth'})">Try it</span>
+    </div>
+    <div class="status-pill"><span class="status-dot"></span>MODEL ONLINE</div>
+  </nav>
+
+  <section class="hero" style="border-top:none;padding-top:80px;">
+    <div>
+      <div class="eyebrow">RUNWAY EDGE &amp; CENTERLINE DETECTION</div>
+      <h1>See the runway<br>the way the <span class="accent">model</span> sees it.</h1>
+      <p class="sub">Upload an approach or ground-level image and get the left edge, right edge, and centerline located in pixels — trained on an 11GB dataset of real runway imagery.</p>
+      <div class="cta-row">
+        <button class="btn btn-primary" onclick="document.getElementById('demo').scrollIntoView({behavior:'smooth'})">Run detection</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">How it works</button>
+      </div>
+
+      <div class="readouts">
+        <div class="readout"><div class="val green">0.702</div><div class="lbl">MEAN IOU</div></div>
+        <div class="readout"><div class="val">11.7<span style="font-size:13px;color:var(--text-dim);">px</span></div><div class="lbl">LINE ERROR</div></div>
+        <div class="readout"><div class="val">733</div><div class="lbl">VAL SAMPLES</div></div>
+      </div>
+    </div>
+
+    <div class="scope" id="scope">
+      <div class="scope-corners"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
+      <div class="scope-ring" style="width:92%;height:92%;"></div>
+      <div class="scope-ring" style="width:62%;height:62%;"></div>
+      <div class="scope-ring" style="width:32%;height:32%;"></div>
+      <div class="scope-sweep"></div>
+      <div class="runway-strip">
+        <div class="edge-line left"></div>
+        <div class="edge-line center"></div>
+        <div class="edge-line right"></div>
+      </div>
+      <div class="scope-tag mono">TARGET LOCKED · 3 LINES</div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="section-head">
+      <h2>From raw frame to three located lines, in one forward pass.</h2>
+      <p>A MobileNetV3 backbone feeds two heads — one for the runway mask, one for the six anchor points.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="num mono">01</div>
+        <h3>Frame in</h3>
+        <p>A single RGB image is resized to 256×256 and normalized — no manual cropping or annotation needed.</p>
+      </div>
+      <div class="step">
+        <div class="num mono">02</div>
+        <h3>Dual-head inference</h3>
+        <p>The segmentation head marks the runway surface; the regression head predicts six anchor points — left edge, right edge, and centerline endpoints.</p>
+      </div>
+      <div class="step">
+        <div class="num mono">03</div>
+        <h3>Lines out</h3>
+        <p>Predicted points are scaled back to the original image resolution and drawn as green, red, and blue overlays.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="perf">
+    <div class="section-head">
+      <h2>Validated on a held-out 733-image set.</h2>
+      <p>Metrics from the final checkpoint, not cherry-picked epochs.</p>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric">
+        <div class="lbl">MEAN IOU</div>
+        <div class="big green">0.702</div>
+        <div class="sub">Segmentation overlap</div>
+        <div class="bar"><i style="width:70.2%;"></i></div>
+      </div>
+      <div class="metric">
+        <div class="lbl">LINE ERROR</div>
+        <div class="big amber">11.7px</div>
+        <div class="sub">Mean anchor deviation</div>
+        <div class="bar"><i style="width:78%;background:var(--amber);"></i></div>
+      </div>
+      <div class="metric">
+        <div class="lbl">TRAIN LOSS</div>
+        <div class="big">0.382</div>
+        <div class="sub">Final epoch, blended</div>
+        <div class="bar"><i style="width:40%;"></i></div>
+      </div>
+      <div class="metric">
+        <div class="lbl">EPOCHS</div>
+        <div class="big">100<span style="font-size:15px;color:var(--text-dim);">/100</span></div>
+        <div class="sub">Cosine LR schedule</div>
+        <div class="bar"><i style="width:100%;"></i></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="demo">
+    <div class="section-head">
+      <h2>Try it on your own image.</h2>
+      <p>Runs locally against your model once connected — see the note below the upload box.</p>
+    </div>
+
+    <div class="demo-panel">
+      <div class="demo-inner" id="dropZone">
+        <div class="demo-reticle"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
+        <h3 id="dropTitle">Drop an image here</h3>
+        <p>or click to browse — JPG or PNG</p>
+        <button class="btn btn-ghost" type="button" onclick="document.getElementById('fileInput').click()">Select image</button>
+        <input type="file" id="fileInput" accept="image/*">
+        <div class="scan-msg mono" id="scanMsg">SCANNING FOR RUNWAY EDGES...</div>
+        <div id="previewWrap" style="position:relative;"><img id="previewImg" alt="preview" style="display:block;"><canvas id="overlayCanvas" style="position:absolute; top:0; left:0; pointer-events:none;"></canvas></div>
+        <button id="detectBtn" class="btn btn-primary" style="display:none; margin:16px auto 0;">Detect Runway</button>
+      </div>
+    </div>
+    <p class="mono" style="font-size:12.5px;color:var(--text-faint);margin-top:18px;line-height:1.7;">Click the **Detect Runway** button to run the model and see the predicted lines over the image.</p>
+
+    </p>
+  </section>
+
+  <footer>
+    <div>RWY.VISION — RUNWAY DETECTION MODEL</div>
+    <div>MOBILENETV3 · SEG + ANCHOR REGRESSION</div>
+  </footer>
+</div>
+
+<script>
+  // Hero scope: lock-on animation loops every few seconds
+  const scope = document.getElementById('scope');
+  function lockCycle(){
+    scope.classList.remove('locked');
+    void scope.offsetWidth; // restart animation
+    setTimeout(()=> scope.classList.add('locked'), 50);
+  }
+  lockCycle();
+  setInterval(lockCycle, 4500);
+
+  // Upload / preview
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const previewWrap = document.getElementById('previewWrap');
+  const previewImg = document.getElementById('previewImg');
+  const scanMsg = document.getElementById('scanMsg');
+  const dropTitle = document.getElementById('dropTitle');
+const detectBtn = document.getElementById('detectBtn');
+let currentFile = null;
+
+  function handleFile(file){
+    if(!file || !file.type.startsWith('image/')) return;
+    const url = URL.createObjectURL(file);
+    previewImg.src = url;
+    previewImg.onload = () => {
+      const canvas = document.getElementById('overlayCanvas');
+      canvas.width = previewImg.naturalWidth;
+      canvas.height = previewImg.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+    previewWrap.classList.add('active');
+    dropTitle.textContent = file.name;
+    currentFile = file;
+    detectBtn.style.display = 'block';
+}
+
+  fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+  ['dragover','dragenter'].forEach(evt=>{
+    dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.add('drag'); });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.remove('drag'); });
+  });
+  dropZone.addEventListener('drop', e=>{
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    handleFile(file);
+  });
+  dropZone.addEventListener('click', e=>{
+    if(e.target.tagName !== 'BUTTON') fileInput.click();
+
+// Detect button click triggers inference on the selected file
+detectBtn.addEventListener('click', () => {
+  if (currentFile) {
+    runDetection(currentFile);
+    // hide button after detection starts
+    detectBtn.style.display = 'none';
+  }
+});
+  });
+
+async function runDetection(file) {
+  // Show scanning message
+  const scanMsg = document.getElementById('scanMsg');
+  scanMsg.classList.add('active');
+  const formData = new FormData();
+  formData.append('image', file);
+  try {
+    const res = await fetch('http://localhost:8000/predict', { method: 'POST', body: formData });
+    if (!res.ok) throw new Error(`Server responded ${res.status}`);
+    const data = await res.json();
+    drawOverlay(data);
+  } catch (err) {
+    console.error('Run detection error:', err);
+    alert('Detection failed: ' + err.message);
+  } finally {
+    scanMsg.classList.remove('active');
+  }
+}
+
+function drawOverlay({ anchors, width, height }) {
+  const previewImg = document.getElementById('previewImg');
+  const canvas = document.getElementById('overlayCanvas');
+  if (!previewImg || !canvas) return;
+  const displayW = previewImg.clientWidth;
+  const displayH = previewImg.clientHeight;
+  canvas.width = displayW;
+  canvas.height = displayH;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const scaleX = displayW / width;
+  const scaleY = displayH / height;
+  const transform = (x, y) => [x * scaleX, y * scaleY];
+  const colors = ['lime', 'red', 'cyan']; // left=lime, right=red, center=cyan
+  for (let i = 0; i < 3; i++) {
+    const [x1, y1, x2, y2] = anchors.slice(i * 4, i * 4 + 4);
+    const [sx, sy] = transform(x1, y1);
+    const [ex, ey] = transform(x2, y2);
+    ctx.strokeStyle = colors[i];
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+  }
+}
+</script>
+
+</body>
+</html>
