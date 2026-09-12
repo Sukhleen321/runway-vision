@@ -116,7 +116,7 @@ python -m http.server 8080
 ```
 Open `http://localhost:8080/runway_frontend.html`.
 
-> **Checkpoint:** `runway_model_best.pth` isn't committed (see `.gitignore` — GitHub isn't built for large binaries). Download it here: **[Add your Release/Drive link]**
+> **Checkpoint:** `runway_model_best.pth` isn't committed (see `.gitignore` — GitHub isn't built for large binaries). Download it here: **https://github.com/Sukhleen321/runway-vision/releases/download/v1.0/runway_model_best.pth**
 
 ## Training
 
