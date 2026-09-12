@@ -128,6 +128,7 @@ Open `http://localhost:8080/runway_frontend.html`.
 ## Known limitations
 
 - **Domain gap:** trained on simulator-sourced imagery. Performs strongly on in-distribution validation data (`0.702 IoU`), but accuracy drops on real-world aerial/ground photographs — particularly asymmetric edge tracking (one edge detected more precisely than the other) under unfamiliar camera geometry. Closing this gap via real-photo fine-tuning or heavier augmentation is the main direction for future work.
+- Not extensively validated on unusual angles, low-altitude shots, or adverse weather.
 
 ## Tech stack
 
